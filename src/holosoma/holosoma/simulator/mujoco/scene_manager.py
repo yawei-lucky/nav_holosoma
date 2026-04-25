@@ -493,3 +493,106 @@ class MujocoSceneManager:
         """
         logger.info("Compiling world model using MjSpec")
         return self.world_spec.compile()
+
+    def add_nav_landmark_scene(self) -> None:
+        """Add a simple navigation landmark scene: one table + one black bag-like placeholder."""
+
+        # -------------------------
+        # Scene layout parameters
+        # -------------------------
+        table_x = 3.5
+        table_y = 0.0
+
+        table_top_z = 0.75
+        table_top_size = [0.80, 0.45, 0.035]  # half sizes: length, width, thickness
+
+        table_length = table_top_size[0]
+        table_width = table_top_size[1]
+        table_thickness = table_top_size[2]
+
+        leg_half_size = [0.035, 0.035, table_top_z / 2.0]
+        leg_z = table_top_z / 2.0
+
+        # -------------------------
+        # Table top, wooden color
+        # -------------------------
+        self.world_spec.worldbody.add_geom(
+            name="nav_table_top",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[table_x, table_y, table_top_z],
+            size=table_top_size,
+            rgba=[0.75, 0.45, 0.18, 1.0],
+            contype=2,
+            conaffinity=1,
+        )
+
+        # -------------------------
+        # Four table legs
+        # -------------------------
+        leg_positions = [
+            [table_x + table_length * 0.85, table_y + table_width * 0.85, leg_z],
+            [table_x + table_length * 0.85, table_y - table_width * 0.85, leg_z],
+            [table_x - table_length * 0.85, table_y + table_width * 0.85, leg_z],
+            [table_x - table_length * 0.85, table_y - table_width * 0.85, leg_z],
+        ]
+
+        for i, pos in enumerate(leg_positions):
+            self.world_spec.worldbody.add_geom(
+                name=f"nav_table_leg_{i}",
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=pos,
+                size=leg_half_size,
+                rgba=[0.20, 0.20, 0.20, 1.0],
+                contype=2,
+                conaffinity=1,
+            )
+
+        # -------------------------
+        # Black bag-like placeholder
+        # Use several simple boxes to make it less like a perfect cube.
+        # -------------------------
+        table_surface_z = table_top_z + table_thickness
+
+        # Main bag body
+        self.world_spec.worldbody.add_geom(
+            name="nav_bag_body",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[table_x, table_y, table_surface_z + 0.11],
+            size=[0.28, 0.16, 0.11],
+            rgba=[0.02, 0.02, 0.02, 1.0],
+            contype=2,
+            conaffinity=1,
+        )
+
+        # Slight top bulge
+        self.world_spec.worldbody.add_geom(
+            name="nav_bag_top",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[table_x - 0.03, table_y, table_surface_z + 0.23],
+            size=[0.24, 0.14, 0.035],
+            rgba=[0.01, 0.01, 0.01, 1.0],
+            contype=2,
+            conaffinity=1,
+        )
+
+        # Front pocket / side detail
+        self.world_spec.worldbody.add_geom(
+            name="nav_bag_front_pocket",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[table_x - 0.22, table_y, table_surface_z + 0.10],
+            size=[0.035, 0.13, 0.07],
+            rgba=[0.04, 0.04, 0.04, 1.0],
+            contype=2,
+            conaffinity=1,
+        )
+
+        # Optional: small white power strip-like object on table, useful visual reference
+        self.world_spec.worldbody.add_geom(
+            name="nav_power_strip",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[table_x + 0.35, table_y - 0.22, table_surface_z + 0.015],
+            size=[0.20, 0.035, 0.015],
+            rgba=[0.90, 0.90, 0.85, 1.0],
+            contype=2,
+            conaffinity=1,
+        )

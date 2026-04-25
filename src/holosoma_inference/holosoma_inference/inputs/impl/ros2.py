@@ -59,6 +59,8 @@ class Ros2Input(InputProvider):
         self._lock = threading.Lock()
         # Command queue
         self._queue: deque[StateCommand] = deque()
+        # Command mapping (for dual-mode compatibility)
+        self._mapping = dict(ROS2_COMMAND_MAP)
 
     def start(self) -> None:
         import rclpy

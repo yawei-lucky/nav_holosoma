@@ -78,13 +78,18 @@ class DualModePolicy:
         ``KeyboardInput`` gets its own subscriber queue from the shared
         ``_KeyboardListenerThread``.  Only ``_dispatch_command`` needs
         patching to intercept SWITCH_MODE.
+        
+        For ROS2 and other input sources without _mapping attribute, we skip
+        the injection but still patch _dispatch_command.
         """
         from holosoma_inference.inputs.api.commands import StateCommand
 
         # Inject SWITCH_MODE into both command providers' mappings (joystick X, keyboard x)
+        # Only if the provider has a _mapping attribute (e.g., keyboard, joystick)
         for policy in (self.primary, self.secondary):
-            policy._command_provider._mapping["X"] = StateCommand.SWITCH_MODE
-            policy._command_provider._mapping["x"] = StateCommand.SWITCH_MODE
+            if hasattr(policy._command_provider, "_mapping"):
+                policy._command_provider._mapping["X"] = StateCommand.SWITCH_MODE
+                policy._command_provider._mapping["x"] = StateCommand.SWITCH_MODE
 
         # Patch _dispatch_command to intercept SWITCH_MODE
         self._orig_dispatch = {

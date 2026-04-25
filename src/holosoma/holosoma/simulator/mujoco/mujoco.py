@@ -7,6 +7,8 @@ implementations for terrain rendering, contact detection, and physics simulation
 from __future__ import annotations
 
 import dataclasses
+import imageio.v2 as imageio
+import os
 
 import mujoco
 import mujoco.viewer
@@ -325,10 +327,46 @@ class MuJoCo(BaseSimulator):
 
         # Compile once at the end
         self.root_model = self.scene_manager.compile()
+        print("\n" + "=" * 80, flush=True)
+        print("[NAVILA_CAMERA_CHECK] MuJoCo camera list", flush=True)
+        print(f"[NAVILA_CAMERA_CHECK] num cameras: {self.root_model.ncam}", flush=True)
+
+        for i in range(self.root_model.ncam):
+            cam_name = mujoco.mj_id2name(
+                self.root_model,
+                mujoco.mjtObj.mjOBJ_CAMERA,
+                i,
+            )
+            print(f"[NAVILA_CAMERA_CHECK] camera[{i}]: {cam_name}", flush=True)
+
+        print("=" * 80 + "\n", flush=True)
+
         self.root_data = mujoco.MjData(self.root_model)
 
         # Apply post-compilation settings
         self.root_model.opt.timestep = self.sim_dt
+
+        def debug_save_camera_frame(model, data, camera_name="robot_head_nav",
+                            out_path="/tmp/robot_head_nav_test.png",
+                            width=640, height=480):
+            renderer = mujoco.Renderer(model, height=height, width=width)
+            renderer.update_scene(data, camera=camera_name)
+            rgb = renderer.render()
+            os.makedirs(os.path.dirname(out_path), exist_ok=True)
+            imageio.imwrite(out_path, rgb)
+            print(f"[NAVILA_CAMERA_OUTPUT] saved camera frame to: {out_path}", flush=True)
+
+        if not hasattr(self, "_navila_camera_debug_saved"):
+            for _ in range(10):
+                mujoco.mj_step(self.root_model, self.root_data)
+
+            debug_save_camera_frame(
+                self.root_model,
+                self.root_data,
+                camera_name="robot_head_nav",
+                out_path="/tmp/robot_head_nav_test.png",
+            )
+            self._navila_camera_debug_saved = True
 
         # Backend selection based on configuration
         if self.simulator_config.mujoco_backend == MujocoBackend.WARP:
@@ -395,6 +433,7 @@ class MuJoCo(BaseSimulator):
             self.scene_manager.add_terrain(terrain_state, self.training_config.num_envs)
             self.scene_manager.add_lighting()
             self.scene_manager.add_materials()
+            self.scene_manager.add_nav_landmark_scene()
 
         # Always add robot after terrain, in case it references ground/floor, etc for contacts
         self.scene_manager.add_robot(
