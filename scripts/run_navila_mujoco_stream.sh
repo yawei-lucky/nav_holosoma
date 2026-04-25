@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOLOSOMA_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+cd "$HOLOSOMA_ROOT"
+
+source scripts/source_mujoco_setup.sh
+
+export NAVILA_MUJOCO_STREAM=1
+export NAVILA_MUJOCO_CAMERA="${NAVILA_MUJOCO_CAMERA:-robot_head_nav}"
+export NAVILA_MUJOCO_STREAM_DIR="${NAVILA_MUJOCO_STREAM_DIR:-${HOLOSOMA_ROOT}/runtime/navila_mujoco_stream}"
+export NAVILA_MUJOCO_WIDTH="${NAVILA_MUJOCO_WIDTH:-640}"
+export NAVILA_MUJOCO_HEIGHT="${NAVILA_MUJOCO_HEIGHT:-480}"
+export NAVILA_MUJOCO_FRAME_INTERVAL="${NAVILA_MUJOCO_FRAME_INTERVAL:-0.5}"
+export NAVILA_MUJOCO_CLEAN_START="${NAVILA_MUJOCO_CLEAN_START:-1}"
+
+mkdir -p "$NAVILA_MUJOCO_STREAM_DIR"
+
+echo "[NAVILA_MUJOCO] HOLOSOMA_ROOT=$HOLOSOMA_ROOT"
+echo "[NAVILA_MUJOCO] STREAM_DIR=$NAVILA_MUJOCO_STREAM_DIR"
+echo "[NAVILA_MUJOCO] CAMERA=$NAVILA_MUJOCO_CAMERA"
+
+python src/holosoma/holosoma/run_sim.py robot:g1-29dof

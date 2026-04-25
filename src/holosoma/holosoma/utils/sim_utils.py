@@ -368,6 +368,7 @@ class DirectSimulation:
         self.device = device
         self.simulation_app = simulation_app
         self.simulator = env.sim
+        self.navila_camera_stream = None
 
     def __enter__(self) -> Self:
         """Context manager entry - initialize the simulation.
@@ -434,6 +435,19 @@ class DirectSimulation:
 
         # Step 5.5: Initialize episode (positions virtual gantry, etc.)
         self.simulator.on_episode_start(env_id=0)
+        if get_simulator_type() == SimulatorType.MUJOCO and os.environ.get("NAVILA_MUJOCO_STREAM", "0") == "1":
+            from holosoma.simulator.mujoco.navila_camera_streamer import NavilaCameraStreamWriter
+
+            self.navila_camera_stream = NavilaCameraStreamWriter(
+                simulator=self.simulator,
+                camera_name=os.environ.get("NAVILA_MUJOCO_CAMERA", "robot_head_nav"),
+                out_dir=os.environ.get("NAVILA_MUJOCO_STREAM_DIR", "/tmp/navila_mujoco_stream"),
+                width=int(os.environ.get("NAVILA_MUJOCO_WIDTH", "640")),
+                height=int(os.environ.get("NAVILA_MUJOCO_HEIGHT", "480")),
+                interval_sec=float(os.environ.get("NAVILA_MUJOCO_FRAME_INTERVAL", "0.5")),
+                clean_start=os.environ.get("NAVILA_MUJOCO_CLEAN_START", "1") == "1",
+                keep_max=int(os.environ.get("NAVILA_MUJOCO_KEEP_MAX", "0")),
+            )
         logger.debug("simulator.on_episode_start() completed")
 
         # Step 6: Setup viewer if not headless
@@ -489,6 +503,8 @@ class DirectSimulation:
 
                 # Direct simulator step - this triggers bridge.step() inside simulate_at_each_physics_step()
                 self.simulator.simulate_at_each_physics_step()
+                if self.navila_camera_stream is not None:
+                    self.navila_camera_stream.maybe_write()
 
                 # Update viewer at display rate
                 if step_count % viewer_steps == 0:
