@@ -62,11 +62,15 @@ class NavilaCameraStreamWriter:
 
         self.out_dir.mkdir(parents=True, exist_ok=True)
         if clean_start:
-            for p in self.out_dir.glob("frame_*.jpg"):
-                try:
-                    p.unlink()
-                except OSError:
-                    pass
+            # Wipe every jpg (and any leftover atomic-write temp file) regardless
+            # of prefix, so a previous real-camera run does not leak frames into
+            # this session's window.
+            for pattern in ("*.jpg", ".*.jpg", ".*.tmp"):
+                for p in self.out_dir.glob(pattern):
+                    try:
+                        p.unlink()
+                    except OSError:
+                        pass
 
         assert self.simulator.root_model is not None
         self._renderer = mujoco.Renderer(self.simulator.root_model, height=self.height, width=self.width)
@@ -120,7 +124,10 @@ class NavilaCameraStreamWriter:
         os.replace(tmp_path, final_path)
 
         if self.keep_max > 0:
-            old = sorted(self.out_dir.glob("frame_*.jpg"))[:-self.keep_max]
+            # Cap by total jpgs in the directory so foreign-prefixed leftovers
+            # cannot push the rolling window above keep_max.
+            jpgs = sorted(p for p in self.out_dir.glob("*.jpg") if not p.name.startswith("."))
+            old = jpgs[:-self.keep_max] if len(jpgs) > self.keep_max else []
             for p in old:
                 try:
                     p.unlink()
