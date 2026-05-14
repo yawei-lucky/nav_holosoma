@@ -596,3 +596,179 @@ class MujocoSceneManager:
             contype=2,
             conaffinity=1,
         )
+
+    def _add_room_walls(
+        self,
+        x_min: float = -2.0,
+        x_max: float = 6.0,
+        y_min: float = -3.0,
+        y_max: float = 3.0,
+        height: float = 2.5,
+        thickness: float = 0.05,
+        wall_rgba=(0.88, 0.85, 0.78, 1.0),
+        prefix: str = "nav_room",
+    ) -> None:
+        """Add four walls forming a rectangular indoor room."""
+        cx = (x_min + x_max) / 2.0
+        cy = (y_min + y_max) / 2.0
+        half_x = (x_max - x_min) / 2.0
+        half_y = (y_max - y_min) / 2.0
+        half_h = height / 2.0
+
+        wall_specs = [
+            # name, pos, half-size
+            (f"{prefix}_wall_xmin", [x_min - thickness, cy, half_h], [thickness, half_y, half_h]),
+            (f"{prefix}_wall_xmax", [x_max + thickness, cy, half_h], [thickness, half_y, half_h]),
+            (f"{prefix}_wall_ymin", [cx, y_min - thickness, half_h], [half_x, thickness, half_h]),
+            (f"{prefix}_wall_ymax", [cx, y_max + thickness, half_h], [half_x, thickness, half_h]),
+        ]
+        for name, pos, size in wall_specs:
+            self.world_spec.worldbody.add_geom(
+                name=name,
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                pos=pos,
+                size=size,
+                rgba=list(wall_rgba),
+                contype=2,
+                conaffinity=1,
+            )
+
+    def _add_box_geom(self, name, pos, half_size, rgba):
+        self.world_spec.worldbody.add_geom(
+            name=name,
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=pos,
+            size=half_size,
+            rgba=list(rgba),
+            contype=2,
+            conaffinity=1,
+        )
+
+    def _add_cylinder_geom(self, name, pos, radius, half_height, rgba):
+        self.world_spec.worldbody.add_geom(
+            name=name,
+            type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+            pos=pos,
+            size=[radius, half_height, 0.0],
+            rgba=list(rgba),
+            contype=2,
+            conaffinity=1,
+        )
+
+    def add_nav_indoor_red_shoebox_scene(self) -> None:
+        """Indoor office-like room: walls + clutter (desks, chairs, boxes) + the red shoe box target."""
+        self._add_room_walls(
+            x_min=-2.0, x_max=6.0,
+            y_min=-3.0, y_max=3.0,
+            height=2.5,
+        )
+
+        cardboard = (0.78, 0.62, 0.40, 1.0)
+        cardboard_dark = (0.68, 0.52, 0.32, 1.0)
+        desk_wood = (0.55, 0.40, 0.27, 1.0)
+        monitor_black = (0.08, 0.08, 0.08, 1.0)
+        screen_gray = (0.20, 0.22, 0.25, 1.0)
+        chair_dark = (0.12, 0.12, 0.13, 1.0)
+        chair_seat = (0.18, 0.18, 0.20, 1.0)
+        tower_black = (0.05, 0.05, 0.06, 1.0)
+
+        # --- Cardboard boxes scattered on the floor, on both sides of the path ---
+        # Left-front cluster (closer to robot, to the left of straight path)
+        self._add_box_geom("nav_box_lf1", [1.6, 1.4, 0.25], [0.28, 0.22, 0.25], cardboard)
+        self._add_box_geom("nav_box_lf2", [1.9, 1.7, 0.65], [0.20, 0.18, 0.15], cardboard_dark)
+
+        # Right-front single box
+        self._add_box_geom("nav_box_rf1", [1.8, -1.5, 0.20], [0.25, 0.25, 0.20], cardboard)
+
+        # Near-target left side stack (creates a sense of corridor toward the target)
+        self._add_box_geom("nav_box_l1", [2.7, 1.1, 0.22], [0.22, 0.22, 0.22], cardboard)
+        self._add_box_geom("nav_box_l2", [2.7, 1.1, 0.60], [0.18, 0.18, 0.16], cardboard_dark)
+
+        # Near-target right side
+        self._add_box_geom("nav_box_r1", [2.8, -1.0, 0.18], [0.22, 0.20, 0.18], cardboard)
+
+        # --- Back-wall desk (long table along x_max wall) ---
+        desk_x = 5.4
+        desk_top_z = 0.72
+        desk_top_thickness = 0.025
+        desk_top_half = [0.30, 1.6, desk_top_thickness]
+        self._add_box_geom("nav_desk_top", [desk_x, 0.0, desk_top_z], desk_top_half, desk_wood)
+
+        # Desk legs (4 thin posts)
+        leg_h = desk_top_z / 2.0
+        leg_half = [0.025, 0.025, leg_h]
+        for i, (dx, dy) in enumerate([(0.27, 1.55), (0.27, -1.55), (-0.27, 1.55), (-0.27, -1.55)]):
+            self._add_box_geom(f"nav_desk_leg_{i}", [desk_x + dx, dy, leg_h], leg_half, desk_wood)
+
+        # --- Monitor on the desk ---
+        mon_base_z = desk_top_z + desk_top_thickness
+        # Monitor stand
+        self._add_box_geom("nav_monitor_stand", [desk_x - 0.05, -0.6, mon_base_z + 0.08],
+                           [0.05, 0.05, 0.08], monitor_black)
+        # Monitor screen (slightly recessed back toward wall)
+        self._add_box_geom("nav_monitor_screen", [desk_x + 0.10, -0.6, mon_base_z + 0.32],
+                           [0.02, 0.30, 0.18], screen_gray)
+        # Monitor frame around screen (thin black border)
+        self._add_box_geom("nav_monitor_frame", [desk_x + 0.09, -0.6, mon_base_z + 0.32],
+                           [0.015, 0.32, 0.20], monitor_black)
+
+        # --- Office chair in front of the desk ---
+        chair_x = 4.6
+        chair_y = -0.6
+        # Chair base (5-star, approximated by a flat cylinder)
+        self._add_cylinder_geom("nav_chair_base", [chair_x, chair_y, 0.03], 0.28, 0.03, chair_dark)
+        # Center post
+        self._add_cylinder_geom("nav_chair_post", [chair_x, chair_y, 0.25], 0.04, 0.20, chair_dark)
+        # Seat
+        self._add_box_geom("nav_chair_seat", [chair_x, chair_y, 0.46], [0.22, 0.22, 0.04], chair_seat)
+        # Backrest
+        self._add_box_geom("nav_chair_back", [chair_x + 0.20, chair_y, 0.72], [0.03, 0.20, 0.22], chair_dark)
+
+        # --- Server / PC tower next to the desk ---
+        self._add_box_geom("nav_pc_tower", [5.2, 2.2, 0.27], [0.13, 0.22, 0.27], tower_black)
+
+        # --- Target: red shoe box on black big box (kept directly in front of robot) ---
+        self.add_nav_red_shoebox_scene()
+
+    def add_nav_red_shoebox_scene(self) -> None:
+        """Add a navigation scene: a red shoe box sitting on a black big box."""
+
+        base_x = 3.5
+        base_y = 0.0
+
+        # Black big box (base / platform) — top at ~0.80 m, around humanoid hand height
+        base_half = [0.30, 0.30, 0.40]  # 60cm x 60cm x 80cm
+        base_z = base_half[2]
+        self.world_spec.worldbody.add_geom(
+            name="nav_black_bigbox",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[base_x, base_y, base_z],
+            size=base_half,
+            rgba=[0.05, 0.05, 0.05, 1.0],
+            contype=2,
+            conaffinity=1,
+        )
+
+        # Red shoe box on top of the black box
+        shoe_half = [0.16, 0.09, 0.06]  # 32cm x 18cm x 12cm
+        shoe_z = base_z + base_half[2] + shoe_half[2]
+        self.world_spec.worldbody.add_geom(
+            name="nav_red_shoebox",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[base_x, base_y, shoe_z],
+            size=shoe_half,
+            rgba=[0.85, 0.12, 0.12, 1.0],
+            contype=2,
+            conaffinity=1,
+        )
+
+        # Thin lighter band along the shoe-box top edge (typical box detail)
+        self.world_spec.worldbody.add_geom(
+            name="nav_red_shoebox_lid",
+            type=mujoco.mjtGeom.mjGEOM_BOX,
+            pos=[base_x, base_y, shoe_z + shoe_half[2] - 0.005],
+            size=[shoe_half[0] + 0.003, shoe_half[1] + 0.003, 0.008],
+            rgba=[0.95, 0.20, 0.20, 1.0],
+            contype=2,
+            conaffinity=1,
+        )

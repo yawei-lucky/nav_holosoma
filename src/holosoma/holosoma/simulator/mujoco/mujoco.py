@@ -433,7 +433,13 @@ class MuJoCo(BaseSimulator):
             self.scene_manager.add_terrain(terrain_state, self.training_config.num_envs)
             self.scene_manager.add_lighting()
             self.scene_manager.add_materials()
-            self.scene_manager.add_nav_landmark_scene()
+            nav_scene = os.environ.get("NAVILA_SCENE", "indoor_red_shoebox").strip().lower()
+            if nav_scene == "table_black_bag":
+                self.scene_manager.add_nav_landmark_scene()
+            elif nav_scene == "red_shoebox":
+                self.scene_manager.add_nav_red_shoebox_scene()
+            else:
+                self.scene_manager.add_nav_indoor_red_shoebox_scene()
 
         # Always add robot after terrain, in case it references ground/floor, etc for contacts
         self.scene_manager.add_robot(
